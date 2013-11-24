@@ -1,4 +1,4 @@
 LogSystem
 =========
 
-A Handy Logger in C++
+Logger in C++ and Java
