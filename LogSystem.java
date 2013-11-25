@@ -31,10 +31,23 @@ import java.util.logging.SimpleFormatter;
  * @usage
  * See below code for usage
  * 
- * To initialize, call:
- *  	new LogSystem(loggerName, logFileName);
- * or
- *  	new LogSytem();
+			// LogSystem.init(myLoggerName, myLogFileName);
+			
+			LogSystem.log("info", "1. I'm printing an info");
+			
+			LogSystem.setLevel("warning");
+			LogSystem.log("info", "See this time info no longer output, since the loglevel is higher");
+			
+			LogSystem.setLevel("BoyangDebug");
+			LogSystem.log("BoyangDebug", "2. Now that custom level is set, the matching on will be ouput");
+			LogSystem.log("Laoma_debug", "but not the unmatching ones!");
+			LogSystem.log("finest", "3. It output the default level logs as well, since customlevels are considered one level lower than finest. Want to turn them off? Read on");
+			
+			LogSystem.setLevelEqual("BoyangFocusOnDebug");
+			LogSystem.log("warning", "now even the warnings are not output");
+ 			LogSystem.log("BoyangFocusOnDebug", "4. only the matching log");
+ 			
+ 			Logger logger = LogSystem.getLogger(); // tweak it more by getting the logger obj
  * 
  * 
  * 
@@ -57,31 +70,17 @@ import java.util.logging.SimpleFormatter;
  *  setLevelEqual(customLevelString) to enter equal mode and set customLevel
  *  getLogger() returns the logger obj
  */
-public class LogSystem {
+public final class LogSystem {
 	
 	private static Logger log; 
 	private static String defaultLogFileName = "log.txt";
 	private static String defaultLoggerName = "LogSystemLogger"; 
 	private static String customLevel = null;
 	private static boolean isEqualMode = false;
+	private static boolean isInitialized = false;
 	
-	/**
-	 * default constructor using default names
-	 * @throws IOException
-	 */
-	public LogSystem() throws IOException {
-		init(defaultLoggerName, defaultLogFileName);
-	}
+	private LogSystem() {
 	
-	/**
-	 * Constructor specifying the logger name and logFileName
-	 * 
-	 * @param loggerName name doesn't matter. pick one you like
-	 * @param logFileName the file path you want the log to be stored at, or just give a file name to sore on the same directory e.g. "log.txt"
-	 * @throws IOException
-	 */
-	public LogSystem(String loggerName, String logFileName) throws IOException {
-		init(loggerName, logFileName);
 	}
 	
 	/**
@@ -90,22 +89,28 @@ public class LogSystem {
 	 * @param logFileName
 	 * @throws IOException
 	 */
-	private void init(String loggerName, String logFileName) throws IOException {
-		Handler fileLoggingHandler = new FileHandler(logFileName);
-		Handler consoleLoggingHandler = new ConsoleHandler();
-		
-		Formatter formatter = new SimpleFormatter();
-		fileLoggingHandler.setFormatter(formatter);
-		consoleLoggingHandler.setFormatter(formatter);
-		
-		log = Logger.getLogger(loggerName);
-		log.setUseParentHandlers(false);
-		log.addHandler(fileLoggingHandler);
-		log.addHandler(consoleLoggingHandler);
-		setLevel("config");
+	public static void init(String loggerName, String logFileName) throws IOException {
+		if (!isInitialized) {
+			isInitialized = true;
+			Handler fileLoggingHandler = new FileHandler(logFileName);
+			Handler consoleLoggingHandler = new ConsoleHandler();
+
+			Formatter formatter = new SimpleFormatter();
+			fileLoggingHandler.setFormatter(formatter);
+			consoleLoggingHandler.setFormatter(formatter);
+
+			log = Logger.getLogger(loggerName);
+			log.setUseParentHandlers(false);
+			log.addHandler(fileLoggingHandler);
+			log.addHandler(consoleLoggingHandler);
+			setLevel("config");
+		}
 	}
 	
-	public Logger getLogger() {
+	public static Logger getLogger() throws IOException {
+		if (!isInitialized) {
+			init(defaultLoggerName, defaultLogFileName);
+		}
 		return log;
 	}
 	
@@ -125,7 +130,10 @@ public class LogSystem {
 	 * 
 	 * @param levelString a levelString, case insensitive, don't give me space lah! e.g. "all", "FINE", "MENGYUE_DEBUGGING"
 	 */
-	public void setLevel(String levelString) {
+	public static void setLevel(String levelString) throws IOException {
+		if (!isInitialized) {
+			init(defaultLoggerName, defaultLogFileName);
+		}
 		isEqualMode = false; // Whenever you call setLevel, out of equalMode already
 		Level level = stringToLevel(levelString);
 		
@@ -149,7 +157,10 @@ public class LogSystem {
 	 * 
 	 * @param levelString a levelString, case insensitive, don't give me space lah! e.g. "all", "FINE", "MENGYUE_IS_DEBUGGING" etc.
 	 */
-	public void setLevelEqual(String customLevelString) {
+	public static void setLevelEqual(String customLevelString) throws IOException {
+		if (!isInitialized) {
+			init(defaultLoggerName, defaultLogFileName);
+		}
 		setAllLevel(Level.FINEST);
 		isEqualMode = true;
 		customLevel = customLevelString;
@@ -160,7 +171,10 @@ public class LogSystem {
 	 * @param levelString
 	 * @return return the Level obj. If no match, return null (likely indicates a custom log level, represented by a string)
 	 */
-	private Level stringToLevel(String levelString) {
+	private static Level stringToLevel(String levelString) throws IOException {
+		if (!isInitialized) {
+			init(defaultLoggerName, defaultLogFileName);
+		}
 		Level level;
 		levelString = new String(levelString).toLowerCase();
 		
@@ -196,9 +210,12 @@ public class LogSystem {
 	 * iterate through all handlers and set their levels
 	 * @param level
 	 */
-	private void setAllLevel(Level level) {
-		this.log.setLevel(level);
-		Handler handlers[] = this.log.getHandlers();
+	private static void setAllLevel(Level level) throws IOException {
+		if (!isInitialized) {
+			init(defaultLoggerName, defaultLogFileName);
+		}
+		LogSystem.log.setLevel(level);
+		Handler handlers[] = LogSystem.log.getHandlers();
 		for (Handler handler: handlers) {
 			handler.setLevel(level);
 		}
@@ -209,7 +226,10 @@ public class LogSystem {
 	 * @param levelString
 	 * @param msg
 	 */
-	public void log(String levelString, String msg) {
+	public static void log(String levelString, String msg) throws IOException {
+		if (!isInitialized) {
+			init(defaultLoggerName, defaultLogFileName);
+		}
 		if (isEqualMode) {
 			if (levelString.equals(customLevel)) {
 				log.log(log.getLevel(), msg);
@@ -243,23 +263,23 @@ public class LogSystem {
 		
 		// minimal MSS example
 		try {
-			LogSystem logSystem = new LogSystem(); // alternatively, new LogSystem("myLoggerName", "myLogFile.txt");
+			// LogSystem.init(myLoggerName, myLogFileName);
 			
-			logSystem.log("info", "1. I'm printing an info");
+			LogSystem.log("info", "1. I'm printing an info");
 			
-			logSystem.setLevel("warning");
-			logSystem.log("info", "See this time info no longer output, since the loglevel is higher");
+			LogSystem.setLevel("warning");
+			LogSystem.log("info", "See this time info no longer output, since the loglevel is higher");
 			
-			logSystem.setLevel("BoyangDebug");
-			logSystem.log("BoyangDebug", "2. Now that custom level is set, the matching on will be ouput");
-			logSystem.log("Laoma_debug", "but not the unmatching ones!");
-			logSystem.log("finest", "3. It output the default level logs as well, since customlevels are considered one level lower than finest. Want to turn them off? Read on");
+			LogSystem.setLevel("BoyangDebug");
+			LogSystem.log("BoyangDebug", "2. Now that custom level is set, the matching on will be ouput");
+			LogSystem.log("Laoma_debug", "but not the unmatching ones!");
+			LogSystem.log("finest", "3. It output the default level logs as well, since customlevels are considered one level lower than finest. Want to turn them off? Read on");
 			
-			logSystem.setLevelEqual("BoyangFocusOnDebug");
-			logSystem.log("warning", "now even the warnings are not output");
-			logSystem.log("BoyangFocusOnDebug", "4. only the matching log");
+			LogSystem.setLevelEqual("BoyangFocusOnDebug");
+			LogSystem.log("warning", "now even the warnings are not output");
+			LogSystem.log("BoyangFocusOnDebug", "4. only the matching log");
 			
-			Logger logger = logSystem.getLogger(); // tweak it more by getting the logger obj
+			Logger logger = LogSystem.getLogger(); // tweak it more by getting the logger obj
 		}
 		catch(Exception e) {
 			e.printStackTrace();
