@@ -87,19 +87,32 @@ public final class LogSystem {
 	 * open log file, set formatter and handler, under the hood stuff
 	 * @param loggerName
 	 * @param logFileName
-	 * @throws IOException
+	 * @throws Exception
 	 */
-	public static void init(String loggerName, String logFileName) throws IOException {
+	public static void init(String loggerName, String logFileName) throws Exception {
 		if (!isInitialized) {
 			isInitialized = true;
-			Handler fileLoggingHandler = new FileHandler(logFileName);
+			
+			Handler fileLoggingHandler;
+			if (logFileName != null && logFileName != "") {
+				fileLoggingHandler = new FileHandler(logFileName);
+			}
+			else {
+				fileLoggingHandler = new FileHandler(defaultLogFileName);
+			}
+			
 			Handler consoleLoggingHandler = new ConsoleHandler();
-
 			Formatter formatter = new SimpleFormatter();
 			fileLoggingHandler.setFormatter(formatter);
 			consoleLoggingHandler.setFormatter(formatter);
-
-			log = Logger.getLogger(loggerName);
+			
+			if (loggerName != null && loggerName != "") {
+				log = Logger.getLogger(loggerName);
+			}
+			else {
+				log = Logger.getLogger(defaultLoggerName);
+			}
+			
 			log.setUseParentHandlers(false);
 			log.addHandler(fileLoggingHandler);
 			log.addHandler(consoleLoggingHandler);
@@ -107,7 +120,7 @@ public final class LogSystem {
 		}
 	}
 	
-	public static Logger getLogger() throws IOException {
+	public static Logger getLogger() throws Exception {
 		if (!isInitialized) {
 			init(defaultLoggerName, defaultLogFileName);
 		}
@@ -130,13 +143,19 @@ public final class LogSystem {
 	 * 
 	 * @param levelString a levelString, case insensitive, don't give me space lah! e.g. "all", "FINE", "MENGYUE_DEBUGGING"
 	 */
-	public static void setLevel(String levelString) throws IOException {
+	public static void setLevel(String levelString) throws Exception {
 		if (!isInitialized) {
 			init(defaultLoggerName, defaultLogFileName);
+		}
+		
+		if (levelString == null || levelString == "") { 
+			LogSystem.log("warning", "null or empty string passed in!");
+			return;
 		}
 		isEqualMode = false; // Whenever you call setLevel, out of equalMode already
 		Level level = stringToLevel(levelString);
 		
+		// Here levelString is already non-zero
 		if (level == null){ // It's custom levelString. Set to FINEST first
 			setLevel("FINEST");
 			customLevel = levelString;
@@ -150,6 +169,8 @@ public final class LogSystem {
 	 * This is the special mode that default JRE library is not providing
 	 * "I want to output only this particular level"
 	 * When set, isEqualMode is true and only the custom level log msg will be ouput
+	 * It does set level to FINEST
+	 * 
 	 * 
 	 * A interesting case emerges when a customLevelString that's identical to one of the default is stored
 	 * In this case, the logger can only be in equalMode
@@ -157,10 +178,13 @@ public final class LogSystem {
 	 * 
 	 * @param levelString a levelString, case insensitive, don't give me space lah! e.g. "all", "FINE", "MENGYUE_IS_DEBUGGING" etc.
 	 */
-	public static void setLevelEqual(String customLevelString) throws IOException {
+	public static void setLevelEqual(String customLevelString) throws Exception {
 		if (!isInitialized) {
 			init(defaultLoggerName, defaultLogFileName);
 		}
+		
+		if (customLevelString == null || customLevelString == "") return;
+		
 		setAllLevel(Level.FINEST);
 		isEqualMode = true;
 		customLevel = customLevelString;
@@ -171,10 +195,18 @@ public final class LogSystem {
 	 * @param levelString
 	 * @return return the Level obj. If no match, return null (likely indicates a custom log level, represented by a string)
 	 */
-	private static Level stringToLevel(String levelString) throws IOException {
+	private static Level stringToLevel(String levelString) throws Exception {
 		if (!isInitialized) {
 			init(defaultLoggerName, defaultLogFileName);
 		}
+		
+		if (levelString == null || levelString == "") {
+			// Now think about it, exception is too much for a logger- just log & return
+			// throw new Exception("null or empty string passed in!");
+			LogSystem.log("warning", "null or empty string passed in!");
+			return null;
+		}
+		
 		Level level;
 		levelString = new String(levelString).toLowerCase();
 		
@@ -210,9 +242,14 @@ public final class LogSystem {
 	 * iterate through all handlers and set their levels
 	 * @param level
 	 */
-	private static void setAllLevel(Level level) throws IOException {
+	private static void setAllLevel(Level level) throws Exception {
 		if (!isInitialized) {
 			init(defaultLoggerName, defaultLogFileName);
+		}
+		if (level == null) { 
+			// throw new Exception("null Level obj passed in!");
+			LogSystem.log("warning", "null or empty string passed in!");
+			return;
 		}
 		LogSystem.log.setLevel(level);
 		Handler handlers[] = LogSystem.log.getHandlers();
@@ -226,13 +263,25 @@ public final class LogSystem {
 	 * @param levelString
 	 * @param msg
 	 */
-	public static void log(String levelString, String msg) throws IOException {
+	public static void log(String levelString, String msg) throws Exception {
 		if (!isInitialized) {
 			init(defaultLoggerName, defaultLogFileName);
 		}
+		
+		if (levelString == null || levelString == "") {
+			// throw new Exception("null or empty string passed in!");
+			LogSystem.log("warning", "null or empty string passed in!");
+			return;
+		}
+		if (msg == null || msg == "") {
+			// throw new Exception("null or empty string passed in!");
+			LogSystem.log("warning", "null or empty string passed in!");
+			return;
+		}
+		
 		if (isEqualMode) {
 			if (levelString.equals(customLevel)) {
-				log.log(log.getLevel(), msg);
+				log.log(log.getLevel(), customLevel + ": " + msg);
 			}
 		}
 		else {
@@ -266,6 +315,11 @@ public final class LogSystem {
 			// LogSystem.init(myLoggerName, myLogFileName);
 			
 			LogSystem.log("info", "1. I'm printing an info");
+			LogSystem.log("all", "logging all");
+			LogSystem.setLevel("all");
+			LogSystem.log("all", "logging all");
+			LogSystem.log("off", "logging off");
+			
 			
 			LogSystem.setLevel("warning");
 			LogSystem.log("info", "See this time info no longer output, since the loglevel is higher");
